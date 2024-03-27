@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SHUIWIFI.BIN parser</title>
+</head>
+<body>
+
+<form id="form">
+    <input id="file" type="file"/>
+    <ul id="result"></ul>
+</form>
+
+<script>
+    document.getElementById('file').addEventListener('change', function (e) {
+        if (e.target.files[0]) {
+            let
+                reader = new FileReader(),
+                result = document.getElementById('result'),
+                name = e.target.files[0].name,
+                dotIndex = name.lastIndexOf('.'),
+                baseName = name.substr(0, dotIndex),
+                extension = name.substr(dotIndex);
+            reader.onloadend = (e) => {
+                result.innerHTML = '';
+                try {
+                    let
+                        buffer = e.currentTarget.result,
+                        offset = 0,
+                        readSection = function (length) {
+                            let section = new DataView(buffer, offset, length);
+                            offset += length;
+                            return section;
+                        },
+                        partitionsCount = readSection(4).getInt8(3, true),
+                        partitionsInfo = [...Array(partitionsCount).keys()].map(i => {
+                            let
+                                address = readSection(4).getInt32(0, true),
+                                size = readSection(4).getInt32(0, true);
+                            return {
+                                "address": address,
+                                "size": size
+                            }
+                        }),
+                        partitions = [...Array(partitionsCount).keys()].map(i => {
+                            return {
+                                "address": '0x' + partitionsInfo[i].address.toString(16),
+                                "size": partitionsInfo[i].size,
+                                "data": readSection(partitionsInfo[i].size)
+                            };
+                        });
+                    for (let i = 0; i < partitions.length; i++) {
+                        let
+                            item = document.createElement('li'),
+                            blob = new Blob([partitions[i].data], {type: "application/octet-stream"}),
+                            link = document.createElement('a');
+                        link.innerHTML = link.download = `${baseName}_PART${i}_${partitions[i].address}${extension}`;
+                        link.href = window.URL.createObjectURL(blob);
+                        item.appendChild(link);
+                        result.appendChild(item);
+                    }
+
+                } catch (e) {
+                    let item = document.createElement('li');
+                    item.innerHTML = 'Error parsing firmware file.';
+                    result.appendChild(item);
+                } finally {
+                    document.getElementById('form').reset();
+                }
+            };
+            reader.readAsArrayBuffer(e.target.files[0]);
+        }
+    });
+</script>
+</body>
+</html>
