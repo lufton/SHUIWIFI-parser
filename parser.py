@@ -20,8 +20,7 @@ def main(firmware_path):
 
         commands = "\
             \npip install esptool\
-            \npython -m esptool --port <PORT> erase_flash\
-            \npython -m esptool --port <PORT> write_flash"
+            \npython -m esptool --port <PORT> write_flash --erase-all"
 
         for i in range(n):
             partition_path = f"{name}_PART{i}_{hex(partitions[i]["address"])}{extension}"

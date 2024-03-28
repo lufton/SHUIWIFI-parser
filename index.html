@@ -172,8 +172,7 @@
                         "<p>To flash your device run set of commands in directory with downloaded files (replace &lt;PORT&gt; with real one, e.g. COM3):</p>" +
                         "<pre>" +
                         "pip install esptool\n" +
-                        "python -m esptool --port &lt;PORT&gt; erase_flash\n" +
-                        "python -m esptool --port &lt;PORT&gt; write_flash";
+                        "python -m esptool --port &lt;PORT&gt; write_flash --erase-all";
                     for (let i = 0; i < partitions.length; i++) {
                         let
                             blob = new Blob([partitions[i].data], {type: "application/octet-stream"}),
