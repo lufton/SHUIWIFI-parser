@@ -3,26 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <title>SHUIWIFI.BIN parser</title>
+    <script src="//code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:400,300,700">
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(to right, #4568dc, #b06ab3);
+            color: #D7D7EF;
+            font-family: 'Lato', sans-serif;
+        }
+
+        .table {
+            display: table;
+            height: 100%;
+            width: 100%;
+            max-width: 850px;
+        }
+
+        .cell {
+            display: table-cell;
+            margin: 0;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        pre {
+            overflow-x: auto;
+            max-width: 850px;
+        }
+
+        h2 {
+            margin: 0 0 50px 0;
+            text-align: center;
+        }
+
+        a {
+            color: #D7D7EF;
+        }
+
+        .file-drop-area {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: calc(100% - 50px);
+            padding: 25px;
+            border: 1px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 3px;
+            transition: 0.2s;
+
+            &.is-active {
+                background-color: rgba(255, 255, 255, 0.05);
+            }
+        }
+
+        .fake-btn {
+            flex-shrink: 0;
+            background-color: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            padding: 8px 15px;
+            margin-right: 10px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .file-msg {
+            font-size: small;
+            font-weight: 300;
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-input {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 100%;
+            cursor: pointer;
+            opacity: 0;
+
+            &:focus {
+                outline: none;
+            }
+        }
+    </style>
 </head>
 <body>
-
-<form id="form">
-    <input id="file" type="file"/>
-    <ul id="result"></ul>
-</form>
-
+<div class="table">
+    <div class="cell">
+        <div>
+            <h2>SHUIWIFI.BIN parser</h2>
+            <form>
+                <div class="file-drop-area">
+                    <span class="fake-btn">Choose firmware file</span>
+                    <span class="file-msg">or drag and drop it here</span>
+                    <input class="file-input" type="file">
+                </div>
+            </form>
+            <div class="hint"></div>
+            <ul class="files"></ul>
+        </div>
+    </div>
+</div>
 <script>
-    document.getElementById('file').addEventListener('change', function (e) {
-        if (e.target.files[0]) {
+    let
+        $fileInput = $('.file-input'),
+        $dropArea = $('.file-drop-area'),
+        $hint = $('.hint');
+
+    $fileInput.on('dragenter focus click', function () {
+        $dropArea.addClass('is-active');
+    });
+
+    $fileInput.on('dragleave blur drop', function () {
+        $dropArea.removeClass('is-active');
+    });
+
+    $fileInput.on('change', function (e) {
+        let file = e.target.files[0];
+        if (file) {
             let
                 reader = new FileReader(),
-                result = document.getElementById('result'),
-                name = e.target.files[0].name,
+                $files = $('.files'),
+                name = file.name,
                 dotIndex = name.lastIndexOf('.'),
                 baseName = name.substr(0, dotIndex),
                 extension = name.substr(dotIndex);
+            $(this).prev().text(name);
             reader.onloadend = (e) => {
-                result.innerHTML = '';
+                $files.find('li').remove();
+                $hint.text('');
                 try {
                     let
                         buffer = e.currentTarget.result,
@@ -49,26 +167,29 @@
                                 "data": readSection(partitionsInfo[i].size)
                             };
                         });
+                    if (partitionsCount < 1) throw new Error("There is no partitions.");
+                    let hint =
+                        "<p>To flash your device run set of commands in directory with downloaded files (replace &lt;PORT&gt; with real one, e.g. COM3):</p>" +
+                        "<pre>" +
+                        "pip install esptool\n" +
+                        "python -m esptool --port &lt;PORT&gt; erase_flash\n" +
+                        "python -m esptool --port &lt;PORT&gt; write_flash";
                     for (let i = 0; i < partitions.length; i++) {
                         let
-                            item = document.createElement('li'),
                             blob = new Blob([partitions[i].data], {type: "application/octet-stream"}),
-                            link = document.createElement('a');
-                        link.innerHTML = link.download = `${baseName}_PART${i}_${partitions[i].address}${extension}`;
-                        link.href = window.URL.createObjectURL(blob);
-                        item.appendChild(link);
-                        result.appendChild(item);
+                            name = `${baseName}_PART${i}_${partitions[i].address}${extension}`;
+                        $files.append(`<li><a href="${window.URL.createObjectURL(blob)}" download="${name}">${name}</a></li>`);
+                        hint += ` ${partitions[i].address} ${name}`;
                     }
-
+                    hint += "</pre>";
+                    $hint.html(hint);
                 } catch (e) {
-                    let item = document.createElement('li');
-                    item.innerHTML = 'Error parsing firmware file.';
-                    result.appendChild(item);
+                    $hint.html("Error parsing firmware file.");
                 } finally {
-                    document.getElementById('form').reset();
+                    $('form').trigger('reset');
                 }
             };
-            reader.readAsArrayBuffer(e.target.files[0]);
+            reader.readAsArrayBuffer(file);
         }
     });
 </script>
